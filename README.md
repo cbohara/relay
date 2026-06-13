@@ -149,40 +149,45 @@ prunes each branch the moment its PR merges:
 gh repo edit <owner>/<repo> --delete-branch-on-merge
 ```
 
-That handles the *remote*. For the *local* worktrees, use the `handoffrm <issue>` helper (in
-`docs/relay-helpers.zsh`) to remove a finished worktree once its PR has merged.
+That handles the *remote*. For the *local* worktrees, `handoff bg` auto-removes a worktree once its PR
+merges (see below); `handoff rm <issue>` does it manually for the rest.
 
 ## Local parallelism (optional)
 `handoff.md` runs one relay in whatever tree you're in — it's deliberately generic so it works
 identically in GitHub Actions, locally, and on the web. To fan out across issues *locally*, keep the
 worktree pre-step **out** of the relay (it's machine-specific) and put it in your shell profile instead.
-Three helpers — one to watch, one to walk away, one to clean up:
+One verb (`handoff`, matching the `/handoff` command), with two subcommands:
 
 ```sh
-handoff   <issue>            # foreground: attached session, watch + steer.   handoff 142
-handoffbg <issue> [more...]  # background: detached + logged, fire many.       handoffbg 143 144 145
-handoffrm <issue>            # cleanup: remove the worktree after its PR merges. handoffrm 142
+handoff <issue>             # foreground: attached session, watch + steer.        handoff 142
+handoff bg <issue> [more…]  # background: detached + logged, fire many.            handoff bg 143 144 145
+handoff rm <issue>          # manual cleanup: remove a worktree + its local branch. handoff rm 142
 ```
 
-The functions are named to match the `/handoff` command you invoke inside the session. `handoff` and
-`handoffbg` create a sibling worktree `<repo>-wt-<issue>` on branch `issue-<issue>`, so every relay works
-in isolation — run as many as your machine handles, none stepping on the others. They ship identically
-(per the repo's Ship mode); foreground vs background only changes whether you watch it stream or check
-`../relay-<issue>.log` later. `handoffrm` tears the worktree back down once you're done with it.
+`handoff` and `handoff bg` create a sibling worktree `<repo>-wt-<issue>` on branch `issue-<issue>`, so
+every relay works in isolation — run as many as your machine handles, none stepping on the others. They
+ship identically (per the repo's Ship mode); foreground vs background only changes whether you watch it
+stream or check `../relay-<issue>.log` later.
+
+**Background auto-cleans itself.** When a `handoff bg` relay finishes, it checks whether the issue's PR
+actually merged (via `gh pr list --head issue-<issue> --state merged`, which still resolves after
+delete-branch-on-merge prunes the branch). If merged, it removes the worktree and local branch
+automatically; if **not** merged — a dropped baton, red tests, anything — it **keeps** the worktree so
+you can inspect it. You never lose work to cleanup; only the successes get tidied. `handoff rm` is then
+just for the leftovers (failed runs you've dealt with, or foreground worktrees).
 
 Typical lifecycle, fanning a few issues out in the background:
 
 ```sh
-handoffbg 142 143 144   # 3 isolated worktrees, 3 relays running detached, each logging to ../relay-<n>.log
+handoff bg 142 143 144     # 3 isolated worktrees, 3 relays detached, each logging to ../relay-<n>.log
 tail -f ../relay-142.log   # peek at one if you're curious (optional)
-# … each relay opens its PR and merges per Ship mode; remote branch auto-deletes on merge …
-handoffrm 142 && handoffrm 143 && handoffrm 144   # remove the local worktrees once their PRs land
+# … each relay ships per Ship mode; on merge it auto-removes its own worktree + branch …
+handoff rm 143             # only needed for any that DIDN'T merge (the log says "kept … inspect")
 ```
 
-Start with `handoff` (foreground) until you trust the permission allowlist end-to-end — a background
-relay stalls silently on an un-allowed prompt — then graduate routine slices to `handoffbg`. Note: a
-worktree must exist before you can `handoffrm` it, and you can't remove the worktree you're currently
-`cd`'d into, so run cleanup from the main checkout.
+Start with foreground `handoff` until you trust the permission allowlist end-to-end — a background relay
+stalls silently on an un-allowed prompt — then graduate routine slices to `handoff bg`. Note: you can't
+remove the worktree you're currently `cd`'d into, so run `handoff rm` from the main checkout.
 
 The full functions live in `docs/relay-helpers.zsh`. **Source them** rather than pasting into `~/.zshrc`,
 so the relay repo stays the single source of truth (same reasoning as symlinking the agents) and your
