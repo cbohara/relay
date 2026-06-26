@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/baton.svg" alt="A rainbow baton mid-twirl, trailing color and sparkles" width="520">
+  <img src="assets/baton.svg" alt="One robot hand passing a rainbow baton to another robot hand" width="560">
 </p>
 
 <h1 align="center">baton</h1>
 
-<p align="center"><em>The work gets passed from one hand to the next — a clean baton handed between fresh agents,<br>spec&nbsp;→&nbsp;tests&nbsp;→&nbsp;implement&nbsp;→&nbsp;review.</em></p>
+<p align="center"><em>Hand off the work, not the whole conversation.</em></p>
 
 A portable spec → red-tests → implement → review loop for Claude Code. You hand off a
 task and a crew of subagents runs it leg by leg, checking each baton pass before the
