@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/baton.svg" alt="One robot hand passing a rainbow baton to another robot hand" width="560">
+  <img src="assets/baton.png" alt="One robot hand passing a rainbow baton to another robot hand" width="560">
 </p>
 
 <h1 align="center">baton</h1>
