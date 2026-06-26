@@ -104,14 +104,41 @@ If `auto-merge` is set but the repo has no required check to gate on, Baton does
 blind — it leaves a plain PR open and tells you. So the seatbelt can't silently come off.
 
 ### One-time setup for `auto-merge` (per repo)
-GitHub ships with neither branch protection nor auto-merge enabled by default, so a fresh repo
-needs two toggles before `auto-merge` actually gates:
+`auto-merge` gates on a required PR check, so a fresh repo needs three things: a CI workflow that
+produces a check, auto-merge enabled, and branch protection requiring that check.
+
+**1. Give the repo a check to gate on.** Baton is bring-your-own-CI, but here's a minimal independent
+gate to start from — drop it in `.github/workflows/pr-checks.yml` and edit the install/test steps for
+your stack:
+
+```yaml
+name: pr-checks
+on: pull_request
+jobs:
+  tests:                       # this job name is the required check (see step 3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # --- edit for your stack ---
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.x' }
+      - run: pip install -e '.[dev]'
+      - run: pytest -q
+```
+
+For a web app, add a second job (e.g. `browser`) that boots the app and runs Playwright e2e/visual,
+and require it too (step 3). Keep the slow, environment-heavy gates here in CI — that's tier two from
+[Deeper testing](#deeper-testing--two-tiers).
+
+**2. Enable auto-merge on the repo:**
 
 ```sh
-# 1. allow auto-merge on the repo
 gh repo edit --enable-auto-merge
+```
 
-# 2. require your CI check job on main (CI-gated, not human-gated)
+**3. Require the check on `main`** (CI-gated, not human-gated):
+
+```sh
 gh api -X PUT repos/{owner}/{repo}/branches/main/protection \
   -f 'required_status_checks[strict]=true' \
   -f 'required_status_checks[contexts][]=tests' \
@@ -120,9 +147,9 @@ gh api -X PUT repos/{owner}/{repo}/branches/main/protection \
   -F 'restrictions=null'
 ```
 
-`tests` is your CI's job name — change it to match your workflow, and add more `contexts[]` lines for
+`tests` must match the job name from step 1 — change both together, and add more `contexts[]` lines for
 additional required checks (e.g. `browser`). `required_pull_request_reviews=null` keeps it gated on CI
-but not on a human approval, which is the point of autopilot. Until both are set, `auto-merge` safely
+but not on a human approval, which is the point of autopilot. Until all three are set, `auto-merge` safely
 falls back to leaving the PR open.
 
 Note: if you run `/handoff` from your own CI workflow, a PR it opens with the default `GITHUB_TOKEN`
