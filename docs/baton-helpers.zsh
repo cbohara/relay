@@ -1,7 +1,7 @@
-# relay shell helpers — local parallelism for the handoff relay.
+# baton shell helpers — local parallelism for the handoff pipeline.
 #
 # Single source of truth: source this from your ~/.zshrc so it never drifts —
-#   [ -f /path/to/relay/docs/relay-helpers.zsh ] && source /path/to/relay/docs/relay-helpers.zsh
+#   [ -f /path/to/baton/docs/baton-helpers.zsh ] && source /path/to/baton/docs/baton-helpers.zsh
 #
 # One verb, matching the /handoff command you invoke inside the session:
 #   handoff <issue>             foreground — attached, watch + steer
@@ -9,7 +9,7 @@
 #   handoff rm <issue>          manual cleanup — remove a worktree + its local branch
 #
 # Each issue gets its own sibling git worktree (<repo>-wt-<issue>) on branch
-# issue-<issue>, so many relays run in parallel without stepping on each other.
+# issue-<issue>, so many runs go in parallel without stepping on each other.
 # handoff.md stays generic — this is just the machine-specific local pre-step.
 # Shipping (PR + auto-merge/merge) is controlled by Ship mode in the repo's CLAUDE.md.
 
@@ -43,7 +43,7 @@ _handoff_bg() {  # background: detached + logged, doesn't move your shell; auto-
   for issue in "$@"; do
     ( root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 1
       repo=$(basename "$root"); local parent; parent="$(dirname "$root")"
-      dir="${parent}/${repo}-wt-${issue}"; log="${parent}/relay-${issue}.log"
+      dir="${parent}/${repo}-wt-${issue}"; log="${parent}/baton-${issue}.log"
       [ -d "$dir" ] || git worktree add "$dir" -b "issue-${issue}" 2>/dev/null || git worktree add "$dir" || exit 1
       cd "$dir" || exit 1
       claude -p "/handoff $issue" > "$log" 2>&1
@@ -57,7 +57,7 @@ _handoff_bg() {  # background: detached + logged, doesn't move your shell; auto-
       else
         echo "kept $dir (no merged PR found — inspect, then: handoff rm ${issue})" >> "$log"
       fi ) &
-    echo "handoff $issue → background (pid $!), log: ../relay-${issue}.log  (tail -f to follow)"
+    echo "handoff $issue → background (pid $!), log: ../baton-${issue}.log  (tail -f to follow)"
   done
 }
 

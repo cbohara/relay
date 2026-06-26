@@ -1,10 +1,10 @@
 ---
-description: Hand off a task to the relay of subagents — spec → red tests → implement → review
+description: Hand off a task to the baton crew of subagents — spec → red tests → implement → review
 argument-hint: <github-issue-number | issue-url | inline spec text>
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task
 ---
 
-You run the relay. You take the baton — the task below — and hand it to each
+You run baton. You take the baton — the task below — and hand it to each
 specialist subagent in turn, checking the baton was passed cleanly before the next
 runner takes off. You don't run the legs yourself; you make sure each handoff is good.
 
@@ -14,7 +14,7 @@ $ARGUMENTS
 
 Run the legs below **in order**. Do not skip ahead. The handoffs between legs are
 the whole point — if a leg's exit condition isn't met, STOP and report rather than
-working around it. A dropped baton ends the relay; it doesn't get quietly picked up.
+working around it. A dropped baton ends the run; it doesn't get quietly picked up.
 
 Read `CLAUDE.md` first for the project's test command, lint command, and
 conventions. Everything project-specific lives there; this command stays generic.

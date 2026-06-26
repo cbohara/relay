@@ -1,13 +1,13 @@
-# relay
+# baton
 
 A portable spec → red-tests → implement → review loop for Claude Code. You hand off a
-task and the relay of subagents runs it leg by leg, checking each baton pass before the
+task and a crew of subagents runs it leg by leg, checking each baton pass before the
 next runner takes off. The same files run locally, in CI (`claude-code-action`), or on
 Claude Code on the web — unchanged.
 
 ```
 .claude/
-  commands/handoff.md     # the relay starter — /handoff
+  commands/handoff.md     # the starter — /handoff
   agents/
     spec-writer.md        # leg 1: spec → testable acceptance criteria
     test-writer.md         # leg 2: writes failing tests (Red) — example/property/visual
@@ -17,7 +17,7 @@ Claude Code on the web — unchanged.
   settings.json            # permission defaults
 CLAUDE.md                  # per-project commands, gate toggles & conventions (fill this in)
 ci-templates/              # inert GitHub Actions templates — copy into a project's .github/workflows/
-  relay.yml                # issue labelled `relay` → runs the relay in CI, opens a PR
+  baton.yml                # issue labelled `baton` → runs the pipeline in CI, opens a PR
   pr-checks.yml            # on PR: full suite + browser e2e/visual (the independent gate)
   mutation.yml             # opt-in (label/manual): mutation testing
 ```
@@ -51,7 +51,7 @@ ln -s "$PWD/.claude/agents/qa-browser.md"   ~/.claude/agents/qa-browser.md
 in `~/.claude/` instead of clobbering it.)
 
 Now `/handoff` and the four agents work in any repo. **Per-project specifics stay in each
-repo's own `CLAUDE.md`** — that's the split: generic relay behavior is global and version-
+repo's own `CLAUDE.md`** — that's the split: generic baton behavior is global and version-
 controlled here; the test command, conventions, and dev-server URL live per-repo. A
 project's local `.claude/` also composes with the global one, so you can override or add
 per-repo when you want.
@@ -62,10 +62,10 @@ there (e.g. "always run the linter before finishing"). Anything project-shaped b
 the repo's CLAUDE.md, or it will leak into unrelated work.
 
 ## Deeper testing — two tiers
-The relay supports four heavier techniques, toggled per project in `CLAUDE.md` under
+Baton supports four heavier techniques, toggled per project in `CLAUDE.md` under
 "Testing gates." They split across two tiers by cost and environment:
 
-**In-session (cheap, runs inside the relay):**
+**In-session (cheap, runs inside the pipeline):**
 - **Property-based** (Hypothesis): the test-writer writes invariant tests that generate
   hundreds of inputs. Best for parsers, serializers, math, anything with a clear invariant.
 - **Mutation testing** (mutmut / Stryker): the reviewer breaks the code on purpose to check
@@ -91,13 +91,13 @@ project lean — enable only what fits.
 ## CI templates
 `ci-templates/` holds workflow files as inert references — they only run once copied into a
 *project's* `.github/workflows/`. Copy the ones you want and edit the install/test steps:
-- `relay.yml` — issue labelled `relay` triggers the relay in CI (needs `.claude/` committed in
+- `baton.yml` — issue labelled `baton` triggers the pipeline in CI (needs `.claude/` committed in
   that repo and a `CLAUDE_CODE_OAUTH_TOKEN` secret from `claude setup-token`).
 - `pr-checks.yml` — the independent gate: full suite + Playwright e2e/visual on every PR. Make this
   a required check in branch protection.
 - `mutation.yml` — opt-in (PR label or manual), since it's slow.
 
-## How the relay ships (Ship mode)
+## How baton ships (Ship mode)
 The Anchor leg lands the work according to **Ship mode** in the repo's `CLAUDE.md`:
 - `auto-merge` (default) — open a PR (the durable artifact) and let CI merge it the moment
   `pr-checks.yml` goes green. You never click anything; main stays always-verified. This is the
@@ -106,7 +106,7 @@ The Anchor leg lands the work according to **Ship mode** in the repo's `CLAUDE.m
 - `merge` — merge immediately, no CI wait. Throwaway/solo repos only; the in-session reviewer is
   then the sole gate.
 
-If `auto-merge` is set but the repo has no required check to gate on, the relay does **not** merge
+If `auto-merge` is set but the repo has no required check to gate on, Baton does **not** merge
 blind — it leaves a plain PR open and tells you. So the seatbelt can't silently come off.
 
 ### One-time setup for `auto-merge` (per repo)
@@ -131,10 +131,10 @@ gh api -X PUT repos/{owner}/{repo}/branches/main/protection \
 keeps it gated on CI but not on a human approval, which is the point of autopilot. Until both are set,
 `auto-merge` safely falls back to leaving the PR open.
 
-Note: a PR opened by the relay in CI (via `relay.yml`) pushes with the default `GITHUB_TOKEN`, and
+Note: a PR opened by the pipeline in CI (via `baton.yml`) pushes with the default `GITHUB_TOKEN`, and
 GitHub won't trigger `pr-checks.yml` from that token — so auto-merge would wait forever. Either run
-`/handoff` locally (pushes under your creds, CI fires normally) or wire a PAT in `relay.yml` as noted
-there. Locally-run relays are unaffected.
+`/handoff` locally (pushes under your creds, CI fires normally) or wire a PAT in `baton.yml` as noted
+there. Locally-run pipelines are unaffected.
 
 Heads-up for **private repos on the free plan**: GitHub won't let you require a status check there
 (branch protection and rulesets both need Pro or a public repo), so `auto-merge` has nothing to gate on
@@ -153,9 +153,9 @@ That handles the *remote*. For the *local* worktrees, `handoff bg` auto-removes 
 merges (see below); `handoff rm <issue>` does it manually for the rest.
 
 ## Local parallelism (optional)
-`handoff.md` runs one relay in whatever tree you're in — it's deliberately generic so it works
+`handoff.md` runs one pipeline in whatever tree you're in — it's deliberately generic so it works
 identically in GitHub Actions, locally, and on the web. To fan out across issues *locally*, keep the
-worktree pre-step **out** of the relay (it's machine-specific) and put it in your shell profile instead.
+worktree pre-step **out** of the pipeline (it's machine-specific) and put it in your shell profile instead.
 One verb (`handoff`, matching the `/handoff` command), with two subcommands:
 
 ```sh
@@ -165,11 +165,11 @@ handoff rm <issue>          # manual cleanup: remove a worktree + its local bran
 ```
 
 `handoff` and `handoff bg` create a sibling worktree `<repo>-wt-<issue>` on branch `issue-<issue>`, so
-every relay works in isolation — run as many as your machine handles, none stepping on the others. They
+every run works in isolation — run as many as your machine handles, none stepping on the others. They
 ship identically (per the repo's Ship mode); foreground vs background only changes whether you watch it
-stream or check `../relay-<issue>.log` later.
+stream or check `../baton-<issue>.log` later.
 
-**Background auto-cleans itself.** When a `handoff bg` relay finishes, it checks whether the issue's PR
+**Background auto-cleans itself.** When a `handoff bg` run finishes, it checks whether the issue's PR
 actually merged (via `gh pr list --head issue-<issue> --state merged`, which still resolves after
 delete-branch-on-merge prunes the branch). If merged, it removes the worktree and local branch
 automatically; if **not** merged — a dropped baton, red tests, anything — it **keeps** the worktree so
@@ -179,23 +179,23 @@ just for the leftovers (failed runs you've dealt with, or foreground worktrees).
 Typical lifecycle, fanning a few issues out in the background:
 
 ```sh
-handoff bg 142 143 144     # 3 isolated worktrees, 3 relays detached, each logging to ../relay-<n>.log
-tail -f ../relay-142.log   # peek at one if you're curious (optional)
-# … each relay ships per Ship mode; on merge it auto-removes its own worktree + branch …
+handoff bg 142 143 144     # 3 isolated worktrees, 3 runs detached, each logging to ../baton-<n>.log
+tail -f ../baton-142.log   # peek at one if you're curious (optional)
+# … each run ships per Ship mode; on merge it auto-removes its own worktree + branch …
 handoff rm 143             # only needed for any that DIDN'T merge (the log says "kept … inspect")
 ```
 
-Start with foreground `handoff` until you trust the permission allowlist end-to-end — a background relay
+Start with foreground `handoff` until you trust the permission allowlist end-to-end — a background run
 stalls silently on an un-allowed prompt — then graduate routine slices to `handoff bg`. Note: you can't
 remove the worktree you're currently `cd`'d into, so run `handoff rm` from the main checkout.
 
-The full functions live in `docs/relay-helpers.zsh`. **Source them** rather than pasting into `~/.zshrc`,
-so the relay repo stays the single source of truth (same reasoning as symlinking the agents) and your
+The full functions live in `docs/baton-helpers.zsh`. **Source them** rather than pasting into `~/.zshrc`,
+so the baton repo stays the single source of truth (same reasoning as symlinking the agents) and your
 shell never drifts from canonical:
 
 ```sh
 # in ~/.zshrc — guarded so a missing repo doesn't break shell startup
-[ -f "$HOME/git/relay/docs/relay-helpers.zsh" ] && source "$HOME/git/relay/docs/relay-helpers.zsh"
+[ -f "$HOME/git/baton/docs/baton-helpers.zsh" ] && source "$HOME/git/baton/docs/baton-helpers.zsh"
 ```
 
 ## Tweak freely
